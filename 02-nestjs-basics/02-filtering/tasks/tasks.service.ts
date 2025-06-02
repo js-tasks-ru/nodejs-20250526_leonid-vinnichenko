@@ -1,4 +1,8 @@
-import { Injectable } from "@nestjs/common";
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from "@nestjs/common";
 import { Task, TaskStatus } from "./task.model";
 
 @Injectable()
@@ -40,5 +44,47 @@ export class TasksService {
     status?: TaskStatus,
     page?: number,
     limit?: number,
-  ): Task[] {}
+    sortBy?: string,
+  ): Task[] {
+    if (page !== undefined && (!Number.isInteger(page) || page <= 0)) {
+      throw new BadRequestException("Page should be a positive integer");
+    }
+
+    if (limit !== undefined && (!Number.isInteger(limit) || limit <= 0)) {
+      throw new BadRequestException("Limit should be a positive integer");
+    }
+
+    let filteredTasks = [...this.tasks];
+
+    if (status) {
+      filteredTasks = filteredTasks.filter((task) => task.status === status);
+    }
+
+    if (sortBy) {
+      switch (sortBy.toLowerCase()) {
+        case "title":
+          filteredTasks.sort((a, b) => a.title.localeCompare(b.title));
+          break;
+        case "status":
+          filteredTasks.sort((a, b) => a.status.localeCompare(b.status));
+          break;
+        default:
+          throw new BadRequestException(
+            'Invalid sortBy parameter. Use "title" or "status"',
+          );
+      }
+    }
+
+    if (page !== undefined && limit !== undefined && page > 0 && limit > 0) {
+      const startIndex = (page - 1) * limit;
+      filteredTasks = filteredTasks.slice(startIndex, startIndex + limit);
+      return filteredTasks;
+    }
+
+    if (filteredTasks.length === 0) {
+      throw new NotFoundException("No tasks found matching the criteria");
+    }
+
+    return filteredTasks;
+  }
 }
